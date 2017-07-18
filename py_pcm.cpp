@@ -1,8 +1,12 @@
 #include "/file0/bartolo/usr/python2/include/python2.7/Python.h"
+#include <cpucounters.h>
 
 static char module_docstring[] = "Python hooks for Intel PCM.";
 
-static int globval = 0;
+static double globval = 0.0;
+static PCM *m = NULL;
+static SystemCounterState startState;
+static SystemCounterState endState;
 
 // prototypes
 static PyObject *roi_begin(PyObject *self, PyObject *args);
@@ -39,12 +43,19 @@ PyMODINIT_FUNC initpyPCM(void)
 
 static PyObject *roi_begin(PyObject *self, PyObject *args) {
     //zsim_roi_begin();
-    globval = 69;
+    m = PCM::getInstance();
+    // build and return -1 if failed
+    startState = getSystemCounterState();
+    // clear out the old end state, if any (TEST if reentrant?)
+    endState = startState;
+    globval = 69.999;
     Py_RETURN_NONE;
 }
 
 static PyObject *roi_end(PyObject *self, PyObject *args) {
     //zsim_roi_end();
     //Py_RETURN_NONE;
-    return Py_BuildValue("i", globval);
+    endState = getSystemCounterState();
+    double ipc = getIPC(startState, endState);
+    return Py_BuildValue("d", ipc);
 }
