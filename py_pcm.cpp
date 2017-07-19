@@ -3,10 +3,11 @@
 
 static char module_docstring[] = "Python hooks for Intel PCM.";
 
-static double globval = 0.0;
 static PCM *m = NULL;
 static SystemCounterState startState;
 static SystemCounterState endState;
+
+extern "C" {
 
 // prototypes
 static PyObject *roi_begin(PyObject *self, PyObject *args);
@@ -17,6 +18,7 @@ static PyMethodDef module_methods[] = {
     {"roi_end", roi_end, METH_VARARGS, module_docstring},
     {NULL, NULL, 0, NULL} // just a sentinel
 };
+
 
 PyMODINIT_FUNC initpyPCM(void)
 {
@@ -40,7 +42,6 @@ PyMODINIT_FUNC initpyPCM(void)
     (void) Py_InitModule("pyPCM", module_methods);
 }
 
-
 static PyObject *roi_begin(PyObject *self, PyObject *args) {
     //zsim_roi_begin();
     m = PCM::getInstance();
@@ -48,7 +49,6 @@ static PyObject *roi_begin(PyObject *self, PyObject *args) {
     startState = getSystemCounterState();
     // clear out the old end state, if any (TEST if reentrant?)
     endState = startState;
-    globval = 69.999;
     Py_RETURN_NONE;
 }
 
@@ -58,4 +58,5 @@ static PyObject *roi_end(PyObject *self, PyObject *args) {
     endState = getSystemCounterState();
     double ipc = getIPC(startState, endState);
     return Py_BuildValue("d", ipc);
+}
 }
