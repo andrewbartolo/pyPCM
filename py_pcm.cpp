@@ -13,6 +13,7 @@ extern "C" {
 // prototypes
 static PyObject *roi_begin(PyObject *self, PyObject *args);
 static PyObject *roi_end(PyObject *self, PyObject *args);
+static PyObject *cleanup(PyObject *self, PyObject *args);
 
 
 static PyObject *getActiveAverageFrequency(PyObject *self, PyObject *args);
@@ -28,9 +29,15 @@ static PyObject *getDRAMConsumedEnergyUnits(PyObject *self, PyObject *args);
 //static PyObject *getInstructionsRetired(PyObject *self, PyObject *args);
 static PyObject *getIPC(PyObject *self, PyObject *args);
 static PyObject *getJoulesPerEnergyUnit(PyObject *self, PyObject *args);
-//static PyObject *getL2CacheHitRatio(PyObject *self, PyObject *args);
-//static PyObject *getL2CacheHits(PyObject *self, PyObject *args);
-//static PyObject *getL2CacheMisses(PyObject *self, PyObject *args);
+static PyObject *getL2CacheHitRatio(PyObject *self, PyObject *args);
+static PyObject *getL2CacheHits(PyObject *self, PyObject *args);
+static PyObject *getL2CacheMisses(PyObject *self, PyObject *args);
+static PyObject *getNominalFrequency(PyObject *self, PyObject *args);
+static PyObject *getNumCores(PyObject *self, PyObject *args);
+static PyObject *getNumOnlineCores(PyObject *self, PyObject *args);
+static PyObject *getNumSockets(PyObject *self, PyObject *args);
+static PyObject *getSMT(PyObject *self, PyObject *args);
+
 //static PyObject *getL3CacheHitRatio(PyObject *self, PyObject *args);
 //static PyObject *getL3CacheHits(PyObject *self, PyObject *args);
 //static PyObject *getL3CacheHitsNoSnoop(PyObject *self, PyObject *args);
@@ -44,6 +51,7 @@ static PyObject *getJoulesPerEnergyUnit(PyObject *self, PyObject *args);
 static PyMethodDef module_methods[] = {
     {"roi_begin", roi_begin, METH_VARARGS, module_docstring},
     {"roi_end", roi_end, METH_VARARGS, module_docstring},
+    {"cleanup", cleanup, METH_VARARGS, module_docstring},
     {"getActiveAverageFrequency", getActiveAverageFrequency, METH_VARARGS, module_docstring},
     {"getActiveRelativeFrequency", getActiveRelativeFrequency, METH_VARARGS, module_docstring},
     {"getAverageFrequency", getAverageFrequency, METH_VARARGS, module_docstring},
@@ -52,6 +60,14 @@ static PyMethodDef module_methods[] = {
     {"getDRAMConsumedEnergyUnits", getDRAMConsumedEnergyUnits, METH_VARARGS, module_docstring},
     {"getIPC", getIPC, METH_VARARGS, module_docstring},
     {"getJoulesPerEnergyUnit", getJoulesPerEnergyUnit, METH_VARARGS, module_docstring},
+    {"getL2CacheHitRatio", getL2CacheHitRatio, METH_VARARGS, module_docstring},
+    {"getL2CacheHits", getL2CacheHits, METH_VARARGS, module_docstring},
+    {"getL2CacheMisses", getL2CacheMisses, METH_VARARGS, module_docstring},
+    {"getNominalFrequency", getNominalFrequency, METH_VARARGS, module_docstring},
+    {"getNumCores", getNumCores, METH_VARARGS, module_docstring},
+    {"getNumOnlineCores", getNumOnlineCores, METH_VARARGS, module_docstring},
+    {"getNumSockets", getNumSockets, METH_VARARGS, module_docstring},
+    {"getSMT", getSMT, METH_VARARGS, module_docstring},
     {NULL, NULL, 0, NULL} // just a sentinel
 };
 
@@ -82,11 +98,16 @@ static PyObject *roi_begin(PyObject *self, PyObject *args) {
     m = PCM::getInstance();
     // TODO return an actual PyError if failed
     // TODO garbage-collect m?
+
+    // force-reset the counters before we begin our critical region
+    m->resetPMU();
+
     if (m->program() != PCM::Success) {
         printf("ERROR: PCM::getInstance() in pyPCM.roi_begin() failed\n");
         printf("Are you running as root?\n");
         return NULL;
     }
+
     startState = getSystemCounterState();
     // clear out the old end state, if any (TEST if reentrant?)
     endState = startState;
@@ -100,6 +121,13 @@ static PyObject *roi_end(PyObject *self, PyObject *args) {
     Py_RETURN_NONE;
 }
 
+static PyObject *cleanup(PyObject *self, PyObject *args) {
+    if (m == NULL) {
+        m = PCM::getInstance();
+    }
+    m->cleanup();
+    Py_RETURN_NONE;
+}
 
 
 static PyObject *getActiveAverageFrequency(PyObject *self, PyObject *args) {
@@ -121,17 +149,17 @@ static PyObject *getAverageFrequency(PyObject *self, PyObject *args) {
 //static PyObject *getBytesWrittenToMC(PyObject *self, PyObject *args);
 static PyObject *getConsumedEnergyUnits(PyObject *self, PyObject *args) {
     uint64_t consumedEnergyUnits = getConsumedEnergy(startState, endState);
-    return Py_BuildValue("l", consumedEnergyUnits);
+    return Py_BuildValue("K", consumedEnergyUnits);
 }
 static PyObject *getCycles(PyObject *self, PyObject *args) {
     uint64_t cycles = getCycles(startState, endState);
-    return Py_BuildValue("l", cycles);
+    return Py_BuildValue("K", cycles);
 }
 
 //static PyObject *getDRAMClocks(PyObject *self, PyObject *args);
 static PyObject *getDRAMConsumedEnergyUnits(PyObject *self, PyObject *args) {
     uint64_t dramConsumedEnergyUnits = getDRAMConsumedEnergy(startState, endState);
-    return Py_BuildValue("l", dramConsumedEnergyUnits);
+    return Py_BuildValue("K", dramConsumedEnergyUnits);
 }
 
 //static PyObject *getExecUsage(PyObject *self, PyObject *args);
@@ -146,10 +174,51 @@ static PyObject *getJoulesPerEnergyUnit(PyObject *self, PyObject *args) {
     return Py_BuildValue("d", joulesPerEnergyUnit);
 }
 
-//static PyObject *getL2CacheHitRatio(PyObject *self, PyObject *args);
-//static PyObject *getL2CacheHits(PyObject *self, PyObject *args);
-//static PyObject *getL2CacheMisses(PyObject *self, PyObject *args);
-//static PyObject *getL3CacheHitRatio(PyObject *self, PyObject *args);
+static PyObject *getL2CacheHitRatio(PyObject *self, PyObject *args) {
+    double l2CacheHitRatio = getL2CacheHitRatio(startState, endState);
+    return Py_BuildValue("d", l2CacheHitRatio);
+}
+
+static PyObject *getL2CacheHits(PyObject *self, PyObject *args) {
+    uint64_t l2CacheHits = getL2CacheHits(startState, endState);
+    return Py_BuildValue("K", l2CacheHits);
+}
+
+static PyObject *getL2CacheMisses(PyObject *self, PyObject *args) {
+    uint64_t l2CacheMisses = getL2CacheMisses(startState, endState);
+    return Py_BuildValue("K", l2CacheMisses);
+}
+
+static PyObject *getNominalFrequency(PyObject *self, PyObject *args) {
+    uint64_t nominalFrequency = m->getNominalFrequency();
+    return Py_BuildValue("K", nominalFrequency);
+}
+
+static PyObject *getNumCores(PyObject *self, PyObject *args) {
+    uint32_t numCores = m->getNumCores();
+    return Py_BuildValue("k", numCores);
+}
+
+static PyObject *getNumOnlineCores(PyObject *self, PyObject *args) {
+    uint32_t numOnlineCores = m->getNumOnlineCores();
+    return Py_BuildValue("k", numOnlineCores);
+}
+
+static PyObject *getNumSockets(PyObject *self, PyObject *args) {
+    uint32_t numSockets = m->getNumSockets();
+    return Py_BuildValue("k", numSockets);
+}
+
+static PyObject *getSMT(PyObject *self, PyObject *args) {
+    bool smtEnabled = m->getSMT();
+    if (smtEnabled) {
+        Py_RETURN_TRUE;
+    }
+    else {
+        Py_RETURN_FALSE;
+    }
+}
+
 //static PyObject *getL3CacheHits(PyObject *self, PyObject *args);
 //static PyObject *getL3CacheHitsNoSnoop(PyObject *self, PyObject *args);
 //static PyObject *getL3CacheHitsSnoop(PyObject *self, PyObject *args);
