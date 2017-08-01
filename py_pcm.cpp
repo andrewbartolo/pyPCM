@@ -1,12 +1,21 @@
 #include "/file0/bartolo/usr/python2/include/python2.7/Python.h"
 #include <cpucounters.h>
 #include <stdio.h>  // crude way to print errors
+#include <stdexcept>
 
 static char module_docstring[] = "Python hooks for Intel PCM.";
 
 static PCM *m = NULL;
-static SystemCounterState startState;
-static SystemCounterState endState;
+
+static SystemCounterState systemStartState;
+std::vector<SocketCounterState> socketStartStates; // currently never used by Python
+std::vector<CoreCounterState> coreStartStates;
+
+static SystemCounterState systemEndState;
+std::vector<SocketCounterState> socketEndStates; // currently never used by Python
+std::vector<CoreCounterState> coreEndStates;
+
+
 
 extern "C" {
 
@@ -108,15 +117,19 @@ static PyObject *roi_begin(PyObject *self, PyObject *args) {
         return NULL;
     }
 
-    startState = getSystemCounterState();
+    //systemStartState = getSystemCounterState();
+    m->getAllCounterStates(systemStartState, socketStartStates, coreStartStates);
+
     // clear out the old end state, if any (TEST if reentrant?)
-    endState = startState;
+    // TODO clear out old vectors too
+    systemEndState = systemStartState;
     printf("[PCM ROI begin]\n");
     Py_RETURN_NONE;
 }
 
 static PyObject *roi_end(PyObject *self, PyObject *args) {
-    endState = getSystemCounterState();
+    //systemEndState = getSystemCounterState();
+    m->getAllCounterStates(systemEndState, socketEndStates, coreEndStates);
     printf("[PCM ROI end]\n");
     Py_RETURN_NONE;
 }
@@ -131,41 +144,41 @@ static PyObject *cleanup(PyObject *self, PyObject *args) {
 
 
 static PyObject *getActiveAverageFrequency(PyObject *self, PyObject *args) {
-    double activeAverageFrequency = getActiveAverageFrequency(startState, endState);
+    double activeAverageFrequency = getActiveAverageFrequency(systemStartState, systemEndState);
     return Py_BuildValue("d", activeAverageFrequency);
 }
 
 static PyObject *getActiveRelativeFrequency(PyObject *self, PyObject *args) {
-    double activeRelativeFrequency = getActiveRelativeFrequency(startState, endState);
+    double activeRelativeFrequency = getActiveRelativeFrequency(systemStartState, systemEndState);
     return Py_BuildValue("d", activeRelativeFrequency);
 }
 
 static PyObject *getAverageFrequency(PyObject *self, PyObject *args) {
-    double averageFrequency = getAverageFrequency(startState, endState);
+    double averageFrequency = getAverageFrequency(systemStartState, systemEndState);
     return Py_BuildValue("d", averageFrequency);
 }
 
 //static PyObject *getBytesReadFromMC(PyObject *self, PyObject *args);
 //static PyObject *getBytesWrittenToMC(PyObject *self, PyObject *args);
 static PyObject *getConsumedEnergyUnits(PyObject *self, PyObject *args) {
-    uint64_t consumedEnergyUnits = getConsumedEnergy(startState, endState);
+    uint64_t consumedEnergyUnits = getConsumedEnergy(systemStartState, systemEndState);
     return Py_BuildValue("K", consumedEnergyUnits);
 }
 static PyObject *getCycles(PyObject *self, PyObject *args) {
-    uint64_t cycles = getCycles(startState, endState);
+    uint64_t cycles = getCycles(systemStartState, systemEndState);
     return Py_BuildValue("K", cycles);
 }
 
 //static PyObject *getDRAMClocks(PyObject *self, PyObject *args);
 static PyObject *getDRAMConsumedEnergyUnits(PyObject *self, PyObject *args) {
-    uint64_t dramConsumedEnergyUnits = getDRAMConsumedEnergy(startState, endState);
+    uint64_t dramConsumedEnergyUnits = getDRAMConsumedEnergy(systemStartState, systemEndState);
     return Py_BuildValue("K", dramConsumedEnergyUnits);
 }
 
 //static PyObject *getExecUsage(PyObject *self, PyObject *args);
 //static PyObject *getInstructionsRetired(PyObject *self, PyObject *args);
 static PyObject *getIPC(PyObject *self, PyObject *args) {
-    double ipc = getIPC(startState, endState);
+    double ipc = getIPC(systemStartState, systemEndState);
     return Py_BuildValue("d", ipc);
 }
 
@@ -175,17 +188,17 @@ static PyObject *getJoulesPerEnergyUnit(PyObject *self, PyObject *args) {
 }
 
 static PyObject *getL2CacheHitRatio(PyObject *self, PyObject *args) {
-    double l2CacheHitRatio = getL2CacheHitRatio(startState, endState);
+    double l2CacheHitRatio = getL2CacheHitRatio(systemStartState, systemEndState);
     return Py_BuildValue("d", l2CacheHitRatio);
 }
 
 static PyObject *getL2CacheHits(PyObject *self, PyObject *args) {
-    uint64_t l2CacheHits = getL2CacheHits(startState, endState);
+    uint64_t l2CacheHits = getL2CacheHits(systemStartState, systemEndState);
     return Py_BuildValue("K", l2CacheHits);
 }
 
 static PyObject *getL2CacheMisses(PyObject *self, PyObject *args) {
-    uint64_t l2CacheMisses = getL2CacheMisses(startState, endState);
+    uint64_t l2CacheMisses = getL2CacheMisses(systemStartState, systemEndState);
     return Py_BuildValue("K", l2CacheMisses);
 }
 
