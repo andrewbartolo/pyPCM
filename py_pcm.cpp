@@ -32,10 +32,12 @@ static PyObject *getAverageFrequency(PyObject *self, PyObject *args);
 //static PyObject *getBytesWrittenToMC(PyObject *self, PyObject *args);
 static PyObject *getConsumedEnergyUnits(PyObject *self, PyObject *args);
 static PyObject *getCycles(PyObject *self, PyObject *args);
+static PyObject *getCoreCycles(PyObject *self, PyObject *args);
 //static PyObject *getDRAMClocks(PyObject *self, PyObject *args);
 static PyObject *getDRAMConsumedEnergyUnits(PyObject *self, PyObject *args);
 //static PyObject *getExecUsage(PyObject *self, PyObject *args);
 //static PyObject *getInstructionsRetired(PyObject *self, PyObject *args);
+static PyObject *getCoreInstructionsRetired(PyObject *self, PyObject *args);
 static PyObject *getIPC(PyObject *self, PyObject *args);
 static PyObject *getJoulesPerEnergyUnit(PyObject *self, PyObject *args);
 static PyObject *getL2CacheHitRatio(PyObject *self, PyObject *args);
@@ -66,7 +68,9 @@ static PyMethodDef module_methods[] = {
     {"getAverageFrequency", getAverageFrequency, METH_VARARGS, module_docstring},
     {"getConsumedEnergyUnits", getConsumedEnergyUnits, METH_VARARGS, module_docstring},
     {"getCycles", getCycles, METH_VARARGS, module_docstring},
+    {"getCoreCycles", getCoreCycles, METH_VARARGS, module_docstring},
     {"getDRAMConsumedEnergyUnits", getDRAMConsumedEnergyUnits, METH_VARARGS, module_docstring},
+    {"getCoreInstructionsRetired", getCoreInstructionsRetired, METH_VARARGS, module_docstring},
     {"getIPC", getIPC, METH_VARARGS, module_docstring},
     {"getJoulesPerEnergyUnit", getJoulesPerEnergyUnit, METH_VARARGS, module_docstring},
     {"getL2CacheHitRatio", getL2CacheHitRatio, METH_VARARGS, module_docstring},
@@ -164,9 +168,25 @@ static PyObject *getConsumedEnergyUnits(PyObject *self, PyObject *args) {
     uint64_t consumedEnergyUnits = getConsumedEnergy(systemStartState, systemEndState);
     return Py_BuildValue("K", consumedEnergyUnits);
 }
+
 static PyObject *getCycles(PyObject *self, PyObject *args) {
     uint64_t cycles = getCycles(systemStartState, systemEndState);
     return Py_BuildValue("K", cycles);
+}
+
+static PyObject *getCoreCycles(PyObject *self, PyObject *args) {
+    uint32_t numCores = m->getNumCores();
+
+    PyObject *pt = PyTuple_New(numCores);
+    // TODO a proper Python error return
+    if (pt == NULL) return NULL;
+
+    for (uint32_t i = 0; i < numCores; ++i) {
+        uint64_t coreCycles = getCycles(coreStartStates[i], coreEndStates[i]);
+        PyObject *coreCyclesObj = Py_BuildValue("K", coreCycles);
+        PyTuple_SetItem(pt, i, coreCyclesObj);
+    }
+    return pt;
 }
 
 //static PyObject *getDRAMClocks(PyObject *self, PyObject *args);
@@ -177,6 +197,23 @@ static PyObject *getDRAMConsumedEnergyUnits(PyObject *self, PyObject *args) {
 
 //static PyObject *getExecUsage(PyObject *self, PyObject *args);
 //static PyObject *getInstructionsRetired(PyObject *self, PyObject *args);
+
+static PyObject *getCoreInstructionsRetired(PyObject *self, PyObject *args) {
+     uint32_t numCores = m->getNumCores();
+
+    PyObject *pt = PyTuple_New(numCores);
+    // TODO a proper Python error return
+    if (pt == NULL) return NULL;
+
+    for (uint32_t i = 0; i < numCores; ++i) {
+        uint64_t coreInstrsRetired = getInstructionsRetired(coreStartStates[i], coreEndStates[i]);
+        PyObject *coreInstrsObj = Py_BuildValue("K", coreInstrsRetired);
+        PyTuple_SetItem(pt, i, coreInstrsObj);
+    }
+    return pt;
+
+}
+
 static PyObject *getIPC(PyObject *self, PyObject *args) {
     double ipc = getIPC(systemStartState, systemEndState);
     return Py_BuildValue("d", ipc);
