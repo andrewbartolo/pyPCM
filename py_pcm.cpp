@@ -50,10 +50,10 @@ static PyObject *getNumSockets(PyObject *self, PyObject *args);
 static PyObject *getSMT(PyObject *self, PyObject *args);
 
 //static PyObject *getL3CacheHitRatio(PyObject *self, PyObject *args);
-//static PyObject *getL3CacheHits(PyObject *self, PyObject *args);
+static PyObject *getL3CacheHits(PyObject *self, PyObject *args);
 //static PyObject *getL3CacheHitsNoSnoop(PyObject *self, PyObject *args);
 //static PyObject *getL3CacheHitsSnoop(PyObject *self, PyObject *args);
-//static PyObject *getL3CacheMisses(PyObject *self, PyObject *args);
+static PyObject *getL3CacheMisses(PyObject *self, PyObject *args);
 //static PyObject *getL3CacheOccupancy(PyObject *self, PyObject *args);
 //static PyObject *getL3ScalingFactor(PyObject *self, PyObject *args);
 //static PyObject *getMaxIPC(PyObject *self, PyObject *args);
@@ -76,6 +76,8 @@ static PyMethodDef module_methods[] = {
     {"getL2CacheHitRatio", getL2CacheHitRatio, METH_VARARGS, module_docstring},
     {"getL2CacheHits", getL2CacheHits, METH_VARARGS, module_docstring},
     {"getL2CacheMisses", getL2CacheMisses, METH_VARARGS, module_docstring},
+    {"getL3CacheHits", getL3CacheHits, METH_VARARGS, module_docstring},
+    {"getL3CacheMisses", getL3CacheMisses, METH_VARARGS, module_docstring},
     {"getNominalFrequency", getNominalFrequency, METH_VARARGS, module_docstring},
     {"getNumCores", getNumCores, METH_VARARGS, module_docstring},
     {"getNumOnlineCores", getNumOnlineCores, METH_VARARGS, module_docstring},
@@ -237,6 +239,16 @@ static PyObject *getL2CacheHits(PyObject *self, PyObject *args) {
 static PyObject *getL2CacheMisses(PyObject *self, PyObject *args) {
     uint64_t l2CacheMisses = getL2CacheMisses(systemStartState, systemEndState);
     return Py_BuildValue("K", l2CacheMisses);
+}
+
+static PyObject *getL3CacheHits(PyObject *self, PyObject *args) {
+    uint64_t l3CacheHits = getL3CacheHits(systemStartState, systemEndState);
+    return Py_BuildValue("K", l3CacheHits);
+}
+
+static PyObject *getL3CacheMisses(PyObject *self, PyObject *args) {
+    uint64_t l3CacheMisses = getL3CacheMisses(systemStartState, systemEndState);
+    return Py_BuildValue("K", l3CacheMisses);
 }
 
 static PyObject *getNominalFrequency(PyObject *self, PyObject *args) {
