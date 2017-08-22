@@ -1,4 +1,4 @@
-#include "/file0/bartolo/usr/python2/include/python2.7/Python.h"
+#include <Python.h>
 #include <cpucounters.h>
 #include <stdio.h>  // crude way to print errors
 #include <stdexcept>
@@ -20,6 +20,7 @@ std::vector<CoreCounterState> coreEndStates;
 extern "C" {
 
 // prototypes
+static PyObject *init(PyObject *self, PyObject *args);
 static PyObject *roi_begin(PyObject *self, PyObject *args);
 static PyObject *roi_end(PyObject *self, PyObject *args);
 static PyObject *cleanup(PyObject *self, PyObject *args);
@@ -41,6 +42,8 @@ static PyObject *getCoreInstructionsRetired(PyObject *self, PyObject *args);
 static PyObject *getIPC(PyObject *self, PyObject *args);
 static PyObject *getJoulesPerEnergyUnit(PyObject *self, PyObject *args);
 static PyObject *getL2CacheHitRatio(PyObject *self, PyObject *args);
+static PyObject *getCoreL2CacheHits(PyObject *self, PyObject *args);
+static PyObject *getCoreL2CacheMisses(PyObject *self, PyObject *args);
 static PyObject *getL2CacheHits(PyObject *self, PyObject *args);
 static PyObject *getL2CacheMisses(PyObject *self, PyObject *args);
 static PyObject *getNominalFrequency(PyObject *self, PyObject *args);
@@ -50,6 +53,8 @@ static PyObject *getNumSockets(PyObject *self, PyObject *args);
 static PyObject *getSMT(PyObject *self, PyObject *args);
 
 //static PyObject *getL3CacheHitRatio(PyObject *self, PyObject *args);
+static PyObject *getCoreL3CacheHits(PyObject *self, PyObject *args);
+static PyObject *getCoreL3CacheMisses(PyObject *self, PyObject *args);
 static PyObject *getL3CacheHits(PyObject *self, PyObject *args);
 //static PyObject *getL3CacheHitsNoSnoop(PyObject *self, PyObject *args);
 //static PyObject *getL3CacheHitsSnoop(PyObject *self, PyObject *args);
@@ -60,6 +65,7 @@ static PyObject *getL3CacheMisses(PyObject *self, PyObject *args);
 
 
 static PyMethodDef module_methods[] = {
+    {"init", init, METH_VARARGS, module_docstring},
     {"roi_begin", roi_begin, METH_VARARGS, module_docstring},
     {"roi_end", roi_end, METH_VARARGS, module_docstring},
     {"cleanup", cleanup, METH_VARARGS, module_docstring},
@@ -74,8 +80,12 @@ static PyMethodDef module_methods[] = {
     {"getIPC", getIPC, METH_VARARGS, module_docstring},
     {"getJoulesPerEnergyUnit", getJoulesPerEnergyUnit, METH_VARARGS, module_docstring},
     {"getL2CacheHitRatio", getL2CacheHitRatio, METH_VARARGS, module_docstring},
+    {"getCoreL2CacheHits", getCoreL2CacheHits, METH_VARARGS, module_docstring},
+    {"getCoreL2CacheMisses", getCoreL2CacheMisses, METH_VARARGS, module_docstring},
     {"getL2CacheHits", getL2CacheHits, METH_VARARGS, module_docstring},
     {"getL2CacheMisses", getL2CacheMisses, METH_VARARGS, module_docstring},
+    {"getCoreL3CacheHits", getCoreL3CacheHits, METH_VARARGS, module_docstring},
+    {"getCoreL3CacheMisses", getCoreL3CacheMisses, METH_VARARGS, module_docstring},
     {"getL3CacheHits", getL3CacheHits, METH_VARARGS, module_docstring},
     {"getL3CacheMisses", getL3CacheMisses, METH_VARARGS, module_docstring},
     {"getNominalFrequency", getNominalFrequency, METH_VARARGS, module_docstring},
@@ -109,19 +119,25 @@ PyMODINIT_FUNC initpyPCM(void)
     (void) Py_InitModule("pyPCM", module_methods);
 }
 
-static PyObject *roi_begin(PyObject *self, PyObject *args) {
-    m = PCM::getInstance();
-    // TODO return an actual PyError if failed
-    // TODO garbage-collect m?
-
-    // force-reset the counters before we begin our critical region
+static PyObject *init(PyObject *self, PyObject *args) {
+    if (m == NULL) {
+        m = PCM::getInstance();
+    }
+    // force-reset the counters before we begin taking critical regions
     m->resetPMU();
 
+    // TODO return an actual PyError if failed
+    // TODO garbage-collect m?
     if (m->program() != PCM::Success) {
         printf("ERROR: PCM::getInstance() in pyPCM.roi_begin() failed\n");
         printf("Are you running as root?\n");
         return NULL;
     }
+    Py_RETURN_NONE;
+}
+
+static PyObject *roi_begin(PyObject *self, PyObject *args) {
+    // TODO assert(m);
 
     //systemStartState = getSystemCounterState();
     m->getAllCounterStates(systemStartState, socketStartStates, coreStartStates);
@@ -231,6 +247,36 @@ static PyObject *getL2CacheHitRatio(PyObject *self, PyObject *args) {
     return Py_BuildValue("d", l2CacheHitRatio);
 }
 
+static PyObject *getCoreL2CacheHits(PyObject *self, PyObject *args) {
+     uint32_t numCores = m->getNumCores();
+
+    PyObject *pt = PyTuple_New(numCores);
+    // TODO a proper Python error return
+    if (pt == NULL) return NULL;
+
+    for (uint32_t i = 0; i < numCores; ++i) {
+        uint64_t coreL2Hits = getL2CacheHits(coreStartStates[i], coreEndStates[i]);
+        PyObject *coreL2HitsObj = Py_BuildValue("K", coreL2Hits);
+        PyTuple_SetItem(pt, i, coreL2HitsObj);
+    }
+    return pt;
+}
+
+static PyObject *getCoreL2CacheMisses(PyObject *self, PyObject *args) {
+     uint32_t numCores = m->getNumCores();
+
+    PyObject *pt = PyTuple_New(numCores);
+    // TODO a proper Python error return
+    if (pt == NULL) return NULL;
+
+    for (uint32_t i = 0; i < numCores; ++i) {
+        uint64_t coreL2Misses = getL2CacheMisses(coreStartStates[i], coreEndStates[i]);
+        PyObject *coreL2MissesObj = Py_BuildValue("K", coreL2Misses);
+        PyTuple_SetItem(pt, i, coreL2MissesObj);
+    }
+    return pt;
+}
+
 static PyObject *getL2CacheHits(PyObject *self, PyObject *args) {
     uint64_t l2CacheHits = getL2CacheHits(systemStartState, systemEndState);
     return Py_BuildValue("K", l2CacheHits);
@@ -239,6 +285,36 @@ static PyObject *getL2CacheHits(PyObject *self, PyObject *args) {
 static PyObject *getL2CacheMisses(PyObject *self, PyObject *args) {
     uint64_t l2CacheMisses = getL2CacheMisses(systemStartState, systemEndState);
     return Py_BuildValue("K", l2CacheMisses);
+}
+
+static PyObject *getCoreL3CacheHits(PyObject *self, PyObject *args) {
+     uint32_t numCores = m->getNumCores();
+
+    PyObject *pt = PyTuple_New(numCores);
+    // TODO a proper Python error return
+    if (pt == NULL) return NULL;
+
+    for (uint32_t i = 0; i < numCores; ++i) {
+        uint64_t coreL3Hits = getL3CacheHits(coreStartStates[i], coreEndStates[i]);
+        PyObject *coreL3HitsObj = Py_BuildValue("K", coreL3Hits);
+        PyTuple_SetItem(pt, i, coreL3HitsObj);
+    }
+    return pt;
+}
+
+static PyObject *getCoreL3CacheMisses(PyObject *self, PyObject *args) {
+     uint32_t numCores = m->getNumCores();
+
+    PyObject *pt = PyTuple_New(numCores);
+    // TODO a proper Python error return
+    if (pt == NULL) return NULL;
+
+    for (uint32_t i = 0; i < numCores; ++i) {
+        uint64_t coreL3Misses = getL3CacheMisses(coreStartStates[i], coreEndStates[i]);
+        PyObject *coreL3MissesObj = Py_BuildValue("K", coreL3Misses);
+        PyTuple_SetItem(pt, i, coreL3MissesObj);
+    }
+    return pt;
 }
 
 static PyObject *getL3CacheHits(PyObject *self, PyObject *args) {

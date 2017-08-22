@@ -1,6 +1,6 @@
 from distutils.core import setup, Extension
 
-PCM_DIR = '/file0/bartolo/build-new/pcm'
+PCM_DIR = '/home/andy/src_research/pcm'
 
 module1 = Extension('pyPCM',
                     sources = ['py_pcm.cpp'],

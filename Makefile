@@ -1,4 +1,4 @@
-PCM_DIR = /file0/bartolo/build-new/pcm
+PCM_DIR = /home/andy/src_research/pcm
 
 all:
 	#gcc -O pcm_test.cpp -o pcm_test --std=c++11 -lstdc++ -lpthread -L $(PCM_DIR)/cpucounters.o $(PCM_DIR)/msr.o $(PCM_DIR)/pci.o -I $(PCM_DIR)
