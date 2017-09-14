@@ -29,8 +29,8 @@ static PyObject *cleanup(PyObject *self, PyObject *args);
 static PyObject *getActiveAverageFrequency(PyObject *self, PyObject *args);
 static PyObject *getActiveRelativeFrequency(PyObject *self, PyObject *args);
 static PyObject *getAverageFrequency(PyObject *self, PyObject *args);
-//static PyObject *getBytesReadFromMC(PyObject *self, PyObject *args);
-//static PyObject *getBytesWrittenToMC(PyObject *self, PyObject *args);
+static PyObject *getBytesReadFromMC(PyObject *self, PyObject *args);
+static PyObject *getBytesWrittenToMC(PyObject *self, PyObject *args);
 static PyObject *getConsumedEnergyUnits(PyObject *self, PyObject *args);
 static PyObject *getCycles(PyObject *self, PyObject *args);
 static PyObject *getCoreCycles(PyObject *self, PyObject *args);
@@ -72,6 +72,8 @@ static PyMethodDef module_methods[] = {
     {"getActiveAverageFrequency", getActiveAverageFrequency, METH_VARARGS, module_docstring},
     {"getActiveRelativeFrequency", getActiveRelativeFrequency, METH_VARARGS, module_docstring},
     {"getAverageFrequency", getAverageFrequency, METH_VARARGS, module_docstring},
+    {"getBytesReadFromMC", getBytesReadFromMC, METH_VARARGS, module_docstring},
+    {"getBytesWrittenToMC", getBytesWrittenToMC, METH_VARARGS, module_docstring},
     {"getConsumedEnergyUnits", getConsumedEnergyUnits, METH_VARARGS, module_docstring},
     {"getCycles", getCycles, METH_VARARGS, module_docstring},
     {"getCoreCycles", getCoreCycles, METH_VARARGS, module_docstring},
@@ -137,7 +139,10 @@ static PyObject *init(PyObject *self, PyObject *args) {
 }
 
 static PyObject *roi_begin(PyObject *self, PyObject *args) {
-    // TODO assert(m);
+    if (m == NULL) {
+        // initialize the PCM module if the user forgot to
+        init(self, args);
+    }
 
     //systemStartState = getSystemCounterState();
     m->getAllCounterStates(systemStartState, socketStartStates, coreStartStates);
@@ -180,8 +185,16 @@ static PyObject *getAverageFrequency(PyObject *self, PyObject *args) {
     return Py_BuildValue("d", averageFrequency);
 }
 
-//static PyObject *getBytesReadFromMC(PyObject *self, PyObject *args);
-//static PyObject *getBytesWrittenToMC(PyObject *self, PyObject *args);
+static PyObject *getBytesReadFromMC(PyObject *self, PyObject *args) {
+    uint64_t bytesReadFromMC = getBytesReadFromMC(systemStartState, systemEndState);
+    return Py_BuildValue("K", bytesReadFromMC);
+}
+
+static PyObject *getBytesWrittenToMC(PyObject *self, PyObject *args) {
+    uint64_t bytesWrittenToMC = getBytesWrittenToMC(systemStartState, systemEndState);
+    return Py_BuildValue("K", bytesWrittenToMC);
+}
+
 static PyObject *getConsumedEnergyUnits(PyObject *self, PyObject *args) {
     uint64_t consumedEnergyUnits = getConsumedEnergy(systemStartState, systemEndState);
     return Py_BuildValue("K", consumedEnergyUnits);
